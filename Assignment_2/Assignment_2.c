@@ -1,19 +1,17 @@
 // =================================== //
-// Matthew Moffitt                     //
+// Colbin Hobbs                        //
 // Assignment 2                        //
 // Parallel And Concurrent Programming //
-// Due Feb. 21, before midnight         //
+// Due Feb. 21, before midnight        //
 // =================================== //
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
-#define generate_data(i, j) (i) + (j) * (j)
 
 void main(int argc, char **argv)
 {
     int i, j, pid, np, mtag, count;
-    double t0, t1;
     MPI_Status status;
     MPI_Request req_s, req_r, req_finished;
     MPI_Init(&argc, &argv);
@@ -24,12 +22,12 @@ void main(int argc, char **argv)
     mtag = 1;
     for (int i = 0; i < np; i++){
         if (i != pid){
-            MPI_Send(data, 10, MPI_INT, i, mtag, MPI_COMM_WORLD);
+            MPI_Send(data, np, MPI_INT, i, mtag, MPI_COMM_WORLD);
         }
     }
     for (int i = 0; i < np; i++){
         if (i != pid){
-            MPI_Recv(data, 10, MPI_INT, i, mtag, MPI_COMM_WORLD, &status);
+            MPI_Recv(data, np, MPI_INT, i, mtag, MPI_COMM_WORLD, &status);
         }
     }
 
