@@ -21,40 +21,18 @@ void main(int argc, char **argv)
     MPI_Comm_size(MPI_COMM_WORLD, &np);
     int data[np];
 
-    // Outcome will be three different prints of the same row sum from all of the processes
-
-    if (pid == 0)
-    {
-        for (int i = 0; i < np; i++){
-            data[i] = pid;
+    mtag = 1;
+    for (int i = 0; i < np; i++){
+        if (i != pid){
+            MPI_Send(data, 10, MPI_INT, i, mtag, MPI_COMM_WORLD);
         }
-        mtag = 1;
-        for (int i = 0; i < np; i++){
-            if (i != pid){
-                MPI_Send(data, 10, MPI_INT, i, mtag, MPI_COMM_WORLD);
-            }
-        }
-        for (int i = 0; i < np; i++){
-            if (i != pid){
-                MPI_Recv(data, 10, MPI_INT, i, mtag, MPI_COMM_WORLD, &status);
-            }
-        }
-        printf("%d\n", pid);
     }
-    else /*** all other processes ***/
-    {
-        mtag = 1;
-        for (int i = 0; i < np; i++){
-            if (i != pid){
-                MPI_Send(data, 10, MPI_INT, i, mtag, MPI_COMM_WORLD);
-            }
+    for (int i = 0; i < np; i++){
+        if (i != pid){
+            MPI_Recv(data, 10, MPI_INT, i, mtag, MPI_COMM_WORLD, &status);
         }
-        for (int i = 0; i < np; i++){
-            if (i != pid){
-                MPI_Recv(data, 10, MPI_INT, i, mtag, MPI_COMM_WORLD, &status);
-            }
-        }
-        printf("%d\n", pid);
-    }/****** End of else ******/
+    }
+
+    printf("%d\n", pid);
     MPI_Finalize();
 }
