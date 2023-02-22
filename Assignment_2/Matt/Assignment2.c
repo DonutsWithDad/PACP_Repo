@@ -14,88 +14,103 @@
 
 void main(int argc, char **argv)
 {
-    int n = 2;
-    int i, j, pid, np, mtag;
+    int n = 1;
+    int i, j, pid, np, mtag, data[n];
     MPI_Status status;
     MPI_Request req_s, req_r;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &pid);
     MPI_Comm_size(MPI_COMM_WORLD, &np);
-    int data[np * n];
-
+    
     mtag = 1;
 
-    // Problem: We want to generate p * np random numbers. We divy out the generation to each process, and
-    // implement a barrier waiting for the processes to finish. 
+    // To implement our barrier, we use the following algorithm:
+    // Until we reach 1 process remaining:
+    //   1) Divide the number of processes in 2.
+    //   2) If a process is in the second half, that process sends.
+    //   3) If a process is in the first half, that process receives.
+    //   4) The second half of processes is now sent, and we can ignore for
+    //      now. We then repeat the loop with the receiving processes until
+    //      we have 1 process left.
 
-    srand(pid);
-    for (int i = 0; i < n; i++)
+    // Once we have one process left, we do the same thing, but in reverse. This
+    // is to let all other processes know that every process has entered the
+    // barrier, and it is safe to continue.
+
+    printf("-=-=-=-=-=-=:: PROCESS %d ::=-=-=-=-=-=-\n", pid);
+    printf(" Barrier Entry:\n  ", pid);
+    int max = np;
+    int tgt;
+
+    // Barrier Entry, log2(p)
+    while (1)
     {
-        data[i] = rand() % 500;
+        if (max == 1)
+        {
+            break;
+        }
+        // First, we check if we are a sender or reciever
+        // Sender
+        if (pid >= max / 2 + max % 2)
+        {
+            tgt = pid - max / 2 - max % 2;
+            printf("(%d -> %d)\n  ", pid, tgt);
+            MPI_Send(data, 1, MPI_INT, tgt, mtag, MPI_COMM_WORLD);
+            break;
+        }
+        // Receiver
+        else if (pid < max / 2)
+        {
+            tgt = pid + max / 2 + max % 2;
+            printf("(%d <- %d)\n  ", pid, tgt);
+            MPI_Recv(data, n, MPI_INT, tgt, mtag, MPI_COMM_WORLD, &status);
+
+            // Calculate new number of processes
+            max = max / 2 + max % 2;
+        }
+        // Case there is an odd number of processes that still hasn't sent, and the middle one need not do anything yet.
+        else
+        {
+            printf("(%d waited)\n  ", pid);
+
+            // Calculate new number of processes
+            max = max / 2 + max % 2;
+        }
     }
 
-    // Calculate if the current process is an outermost process
-    int leaf_limit = pow(2, ceil(log(np)/log(2))) / 2;
-    int recv_size = pow(2, floor(log2(leaf_limit)) - floor(log(pid+1)/log(2))) - 1;
-
-    // Here is the barrier. All processes must send back through the chain leading to p0. When a process
-    // completes, it will send to process pid/2. 
-
-    // Case we are a leaf process
-    if (pid >= leaf_limit)
+    // Next, for the barrier exit, we use a simpler algorithm:
+    //   1) Start with a rank of 0. If our process is less than 2^rank (in case of pid0 this is 1), then
+    //      we send. 
+    //   2) If our process is less than 2*2^rank, or 2^(rank + 1), then we receive.
+    //   3) If our process' destination is out of bounds, then we do nothing.
+    printf("\n Barrier Exit:\n  ", pid);
+    int rank = 0;
+    max = 0;
+    // Barrier Exit, log2(p)
+    while (1)
     {
-        // Calculate parent process
-        int dest = (pid+1) / 2 - 1;
+        if (pid < pow(2, rank))
+        {
+            tgt = pid + pow(2, rank);
+            if (tgt >= np)
+            {
+                break;
+            }
+            printf("(%d -> %d)\n  ", pid, tgt);
+            MPI_Send(data, 1, MPI_INT, tgt, mtag, MPI_COMM_WORLD);
+        }
+        else if (pid < pow(2, rank) * 2)
+        {
+            tgt = pid - pow(2, rank);
+            printf("(%d <- %d)\n  ", pid, tgt);
+            MPI_Recv(data, n, MPI_INT, tgt, mtag, MPI_COMM_WORLD, &status);
+        }
 
-        // Send to parent process
-        MPI_Send(data, n, MPI_INT, dest, mtag, MPI_COMM_WORLD);
-
-        // Receive from parent process
-        MPI_Recv(data, n * np, MPI_INT, dest, mtag, MPI_COMM_WORLD, &status);
-    }
-    // Case we are a branch process
-    else if (pid > 0)
-    {
-        // Calculate child processes
-        int src0 = (pid+1) * 2 - 1;
-        int src1 = (pid+1) * 2;
-
-        // If child nodes exist, receive
-        if (src0 < np) MPI_Recv(data + n, n * recv_size, MPI_INT, src0, mtag, MPI_COMM_WORLD, &status);
-        if (src1 < np) MPI_Recv(data + n + n * recv_size, n * recv_size, MPI_INT, src1, mtag, MPI_COMM_WORLD, &status);
-        // Send to parent node
-        int dest = (pid+1) / 2 - 1;
-        MPI_Send(data, n + n * recv_size * 2, MPI_INT, dest, mtag, MPI_COMM_WORLD);
-
-        // Once we recieve here, we will know that every province has entered the barrier, and it is safe to continue.
-        MPI_Recv(data, n * np, MPI_INT, dest, mtag, MPI_COMM_WORLD, &status);
-        // Sending to child nodes.
-        if (src0 < np) MPI_Send(data, n * np, MPI_INT, src0, mtag, MPI_COMM_WORLD);
-        if (src1 < np) MPI_Send(data, n * np, MPI_INT, src1, mtag, MPI_COMM_WORLD);
-    }
-    // Case we are the root process
-    else
-    {
-        // Calculate leaf nodes
-        int src0 = (pid+1) * 2 - 1;
-        int src1 = (pid+1) * 2;
-        // If leaf nodes exist, recieve
-        if (src0 < np) MPI_Recv(data + n, n * recv_size, MPI_INT, src0, mtag, MPI_COMM_WORLD, &status);
-        if (src1 < np) MPI_Recv(data + n + n * recv_size, n * recv_size, MPI_INT, src1, mtag, MPI_COMM_WORLD, &status);
-
-        // Now that we, at the root process, have recieved confirmation from every process, we can now send out to 
-        // every process that every process has entered the barrier.
-        if (src0 < np) MPI_Send(data, n * np, MPI_INT, src0, mtag, MPI_COMM_WORLD);
-        if (src1 < np) MPI_Send(data, n * np, MPI_INT, src1, mtag, MPI_COMM_WORLD);
+        rank++;
     }
 
-    // Print to show that data from all processes has been copied to all processes
-    printf("Process %0.2d: ", pid);
-    for (i = 0; i < n * np; i++)
-    {
-        printf("%d ", data[i]);
-    }
-    
-    //printf("\nProcess %d complete.", pid);
+    // More code...
+
+    // Finalize
     MPI_Finalize();
 }
