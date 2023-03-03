@@ -8,18 +8,40 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
-#define generate_data(i, j) (i) + (j) * (j)
+
+void shortest_path(int SOURCE, int n, int **edge, int *distance);
+int min(int a, int b);
+
 
 void main(int argc, char **argv)
 {
-    int i, j, pid, np, mtag, count;//, data[100][100], data_recv[100], row_sum[100];
+    int i, j, pid, np, mtag;
+    int SOURCE, n = 16; 
+    int edge[16][16] = {
+        {0, 0, 1, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 4, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 1, 0, 12, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+    };
+    int distance[n];
     double t0, t1;
     MPI_Status status;
     MPI_Request req_s, req_r, req_finished;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &pid);
     MPI_Comm_size(MPI_COMM_WORLD, &np);
-
 
     MPI_Finalize();
 }
@@ -55,4 +77,12 @@ void shortest_path(int SOURCE, int n, int **edge, int *distance) {
         }
     } /*** End of while ***/
     free(found) ;
+    printf("%d\n", distance[n]);
 } 
+
+int min(int a, int b){
+    if (a > b)
+        return a;
+    if (a < b)
+        return b;
+}
