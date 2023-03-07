@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <mpi.h>
 
-void shortest_path(int SOURCE, int n, int edge[][16], int data[][16]);
+void shortest_path(int SOURCE, int n, int edge[][16], int data[][16], int pid, int np);
 int min(int a, int b);
 
 
@@ -45,7 +45,7 @@ void main(int argc, char **argv)
 
     SOURCE = 0;
 
-    shortest_path(SOURCE, n, edge, data);
+    shortest_path(SOURCE, n, edge, data, pid, np);
 
     MPI_Finalize();
 }
@@ -55,35 +55,35 @@ void main(int argc, char **argv)
 edge[i][j] is the length of the edge from vertex i to vertex j
 Output: distance[n], the distance from the SOURCE vertex to vertex i.
 *********************************************************************/
-void shortest_path(int SOURCE, int n, int edge[][16], int data[][16]) {
-    int i, j, count, tmp, least, leastPos;
-    //data[0] = distance
-    //data[1] = found
+void shortest_path(int SOURCE, int n, int edge[][16], int data[][16], int pid, int np) {
+    int i = pid, j, count, tmp, least, leastPos;
     for(i=0; i<n; i++) {
         data[1][i]= 0; //found[i]
         data[0][i] = edge[SOURCE][i]; //distance[i]
     }
+    i = (pid * n)/np;
     data[1][SOURCE] = 1 ;
-    count = 1 ;
-    while( count < n ) {
+    while( i < ((pid+1)*n)/np ) {
         least = 987654321 ;
-        for(i=0; i<n; i++) { // <-- parallelize this loop, making it so that every process finds the shortest path from the current node
-            tmp = data[0][i] ; //distance[i]
-            if( (!data[1][i]) && (tmp < least) ) { //found[i]
-                least = tmp ;
-                leastPos = i ;
-            }
+        //for(i=0; i<n; i++) { // <-- parallelize this loop, making it so that every process finds the shortest path from the current node
+        tmp = data[0][i] ; //distance[i]
+        if( (!data[1][i]) && (tmp < least) ) { //found[i]
+            least = tmp ;
+            leastPos = i ;
         }
+        //}
         data[1][leastPos] = 1; //found[i]
-        count++ ;
-        for(i=0; i<n; i++) { // <-- parallelize this loop, making it so that every process finds the closest path given its current nodes
-            if( !(data[1][i]) ) //found[i]
-                data[0][i] = min(data[0][i], least+edge[leastPos][i]); // distance[i]
-        }
+        //for(i=0; i<n; i++) { // <-- parallelize this loop, making it so that every process finds the closest path given its current nodes
+        if( !(data[1][i]) ) //found[i]
+            data[0][i] = min(data[0][i], least+edge[leastPos][i]); // distance[i]
+        //}
+        i++;
     }
+    /*
     for (int i = 0; i < n; i++){
         printf("shortest path to vertex %d: %d\n", i + 1, data[0][i]);
     }
+    */
 } 
 
 int min(int a, int b){
