@@ -60,25 +60,25 @@ void shortest_path(int SOURCE, int n, int edge[][16], int data[][16]) {
     //data[0] = distance
     //data[1] = found
     for(i=0; i<n; i++) {
-        data[1][i]= 0;
-        data[0][i] = edge[SOURCE][i];
+        data[1][i]= 0; //found[i]
+        data[0][i] = edge[SOURCE][i]; //distance[i]
     }
     data[1][SOURCE] = 1 ;
     count = 1 ;
     while( count < n ) {
         least = 987654321 ;
-        for(i=0; i<n; i++) { // <-- parallelize this loop, making it so that every process finds 
-            tmp = data[0][i] ;
-            if( (!data[1][i]) && (tmp < least) ) {
+        for(i=0; i<n; i++) { // <-- parallelize this loop, making it so that every process finds the shortest path from the current node
+            tmp = data[0][i] ; //distance[i]
+            if( (!data[1][i]) && (tmp < least) ) { //found[i]
                 least = tmp ;
                 leastPos = i ;
             }
         }
-        data[1][leastPos] = 1;
+        data[1][leastPos] = 1; //found[i]
         count++ ;
-        for(i=0; i<n; i++) { // <-- parallelize this loop
-            if( !(data[1][i]) )
-                data[0][i] = min(data[0][i], least+edge[leastPos][i]);
+        for(i=0; i<n; i++) { // <-- parallelize this loop, making it so that every process finds the closest path given its current nodes
+            if( !(data[1][i]) ) //found[i]
+                data[0][i] = min(data[0][i], least+edge[leastPos][i]); // distance[i]
         }
     }
     for (int i = 0; i < n; i++){
